@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P File Share</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  
+</head>
+<body>
+    <div class="container">
+        <h2>P2P File Sharing</h2>
+        <input type="file" id="fileInput">
+        <button onclick="shareFile()">Generate Link</button>
+        <p id="downloadLink"></p>
+        <div class="link-buttons" id="shareOptions" style="display: none;">
+            <button onclick="copyLink()">Copy Link</button>
+            <button onclick="shareWhatsApp()">Share via WhatsApp</button>
+        </div>
+        <h3>Paste Magnet Link to Download:</h3>
+        <input type="text" id="magnetInput" placeholder="Enter magnet link here">
+        <button onclick="downloadFile()">Download</button>
+    </div>
+
+    <!-- Modal for Popups -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <p id="modal-message"></p>
+            <button onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+       
+    </script>
+</body>
+<script src="script.js"></script>  
+
+</html>
