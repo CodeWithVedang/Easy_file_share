@@ -1,40 +1,55 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P File Share</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-  
+    <title>FileShare - Peer-to-Peer Sharing</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h2>Easy File Share By CWV</h2>
-        <input type="file" id="fileInput">
-        <button onclick="shareFile()">Generate Link</button>
-        <p id="downloadLink"></p>
-        <div class="link-buttons" id="shareOptions" style="display: none;">
-            <button onclick="copyLink()">Copy Link</button>
-            <button onclick="shareWhatsApp()">Share via WhatsApp</button>
-        </div>
-        <h3>Paste Magnet Link to Download:</h3>
-        <input type="text" id="magnetInput" placeholder="Enter magnet link here">
-        <button onclick="downloadFile()">Download</button>
-    </div>
+        <h1>FileShare</h1>
+        
+        <!-- Status Indicator -->
+        <div id="status" class="status"></div>
 
-    <!-- Modal for Popups -->
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <p id="modal-message"></p>
-            <button onclick="closeModal()">Close</button>
+        <!-- Sender Section -->
+        <div id="sender-section" class="section">
+            <div class="card">
+                <h2>Share a File</h2>
+                <input type="file" id="file-input" />
+                <div id="file-info" class="hidden">
+                    <p>Selected: <span id="file-name"></span></p>
+                    <p>Size: <span id="file-size"></span></p>
+                </div>
+                <div id="error-message" class="error hidden"></div>
+                <button id="generate-link" class="btn hidden">Generate Share Link</button>
+                <div id="link-container" class="hidden">
+                    <input type="text" id="share-link" readonly>
+                    <button id="copy-btn" class="btn">Copy</button>
+                </div>
+                <div id="progress-container" class="hidden">
+                    <progress id="upload-progress" max="100" value="0"></progress>
+                    <span id="progress-text">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receiver Section -->
+        <div id="receiver-section" class="section hidden">
+            <div class="card">
+                <h2>Download File</h2>
+                <p>File: <span id="receive-file-name"></span></p>
+                <p>Size: <span id="receive-file-size"></span></p>
+                <button id="download-btn" class="btn">Download</button>
+                <div id="download-progress-container" class="hidden">
+                    <progress id="download-progress" max="100" value="0"></progress>
+                    <span id="download-progress-text">0%</span>
+                </div>
+            </div>
         </div>
     </div>
-
-    <script>
-       
-    </script>
+    <script src="script.js"></script>
 </body>
-<script src="script.js"></script>  
-
 </html>
