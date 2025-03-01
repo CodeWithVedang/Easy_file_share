@@ -8,6 +8,12 @@ class FileShare {
         this.retryCount = 0;
         this.maxRetries = 3;
         this.allowedTypes = ['image/*', 'video/*', 'audio/*', 'application/pdf', 'text/*'];
+        this.configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
         this.initUI();
         this.checkReceiverMode();
     }
@@ -24,6 +30,7 @@ class FileShare {
         downloadBtn.addEventListener('click', () => this.startDownload());
         
         this.updateStatus('Ready', 'connected');
+        this.updateConnectionStatus(false, false);
     }
 
     handleFileSelect() {
@@ -32,7 +39,6 @@ class FileShare {
         
         if (!this.file) return;
         
-        // File type validation
         if (!this.allowedTypes.some(type => this.file.type.match(type.split('*')[0]))) {
             this.showError('Unsupported file type. Allowed: images, videos, audio, PDFs, text files');
             fileInput.value = '';
@@ -49,26 +55,41 @@ class FileShare {
     async generateShareLink() {
         try {
             this.updateStatus('Creating connection...', 'waiting');
-            this.peer = new RTCPeerConnection();
+            this.peer = new RTCPeerConnection(this.configuration);
             this.connection = this.peer.createDataChannel('file-transfer');
+            
+            const iceCandidates = [];
+            this.peer.onicecandidate = (event) => {
+                if (event.candidate) {
+                    iceCandidates.push(event.candidate);
+                } else {
+                    this.createShareLink(iceCandidates);
+                }
+            };
 
             const offer = await this.peer.createOffer();
             await this.peer.setLocalDescription(offer);
-            
-            const shareId = btoa(JSON.stringify(this.peer.localDescription));
-            const shareLink = `${window.location.origin}?share=${shareId}`;
-            document.getElementById('share-link').value = shareLink;
-            document.getElementById('link-container').classList.remove('hidden');
-            
             this.setupSenderConnection();
         } catch (error) {
             this.handleError('Failed to generate link', error);
         }
     }
 
+    createShareLink(iceCandidates) {
+        const connectionData = {
+            sdp: this.peer.localDescription,
+            candidates: iceCandidates
+        };
+        const shareId = btoa(JSON.stringify(connectionData));
+        const shareLink = `${window.location.origin}?share=${shareId}`;
+        document.getElementById('share-link').value = shareLink;
+        document.getElementById('link-container').classList.remove('hidden');
+    }
+
     setupSenderConnection() {
         this.connection.onopen = () => {
             this.updateStatus('Connected! Waiting for receiver...', 'connected');
+            this.updateConnectionStatus(true, false);
             this.sendFile();
             this.retryCount = 0;
         };
@@ -80,11 +101,18 @@ class FileShare {
 
         this.connection.onclose = () => {
             this.updateStatus('Connection closed', 'error');
+            this.updateConnectionStatus(false, false);
         };
 
-        this.peer.onicecandidate = (event) => {
-            if (event.candidate) {
-                // Handle ICE candidates
+        this.peer.onconnectionstatechange = () => {
+            switch(this.peer.connectionState) {
+                case 'connected':
+                    this.updateConnectionStatus(true, false);
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    this.updateConnectionStatus(false, false);
+                    break;
             }
         };
     }
@@ -130,19 +158,26 @@ class FileShare {
 
     async setupReceiver(shareId) {
         try {
-            const offer = JSON.parse(atob(shareId));
-            this.peer = new RTCPeerConnection();
+            const connectionData = JSON.parse(atob(shareId));
+            this.peer = new RTCPeerConnection(this.configuration);
             
             this.peer.ondatachannel = (event) => {
                 this.connection = event.channel;
                 this.receiveFile();
             };
 
-            await this.peer.setRemoteDescription(offer);
+            await this.peer.setRemoteDescription(connectionData.sdp);
+            
+            // Add ICE candidates
+            for (const candidate of connectionData.candidates) {
+                await this.peer.addIceCandidate(candidate);
+            }
+
             const answer = await this.peer.createAnswer();
             await this.peer.setLocalDescription(answer);
             
             this.updateStatus('Connecting to sender...', 'waiting');
+            this.updateConnectionStatus(false, true);
         } catch (error) {
             this.handleError('Failed to setup receiver', error);
         }
@@ -154,19 +189,22 @@ class FileShare {
 
         this.connection.onopen = () => {
             this.updateStatus('Connected! Ready to download', 'connected');
+            this.updateConnectionStatus(true, true);
             this.retryCount = 0;
+            document.getElementById('receive-file-name').textContent = this.file ? this.file.name : 'Unknown';
+            document.getElementById('receive-file-size').textContent = this.file ? this.formatSize(this.file.size) : 'Unknown';
         };
 
         this.connection.onmessage = (event) => {
             receivedBuffers.push(event.data);
             receivedSize += event.data.byteLength;
 
-            const progress = (receivedSize / this.file.size) * 100;
+            const progress = (receivedSize / this.file?.size || 1) * 100;
             document.getElementById('download-progress-container').classList.remove('hidden');
             document.getElementById('download-progress').value = progress;
             document.getElementById('download-progress-text').textContent = `${Math.round(progress)}%`;
 
-            if (progress === 100) {
+            if (progress >= 100 && this.file) {
                 this.saveFile(receivedBuffers);
                 this.updateStatus('Download complete!', 'connected');
             }
@@ -179,6 +217,19 @@ class FileShare {
 
         this.connection.onclose = () => {
             this.updateStatus('Connection closed', 'error');
+            this.updateConnectionStatus(false, false);
+        };
+
+        this.peer.onconnectionstatechange = () => {
+            switch(this.peer.connectionState) {
+                case 'connected':
+                    this.updateConnectionStatus(true, true);
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    this.updateConnectionStatus(false, true);
+                    break;
+            }
         };
     }
 
@@ -187,7 +238,7 @@ class FileShare {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = this.file.name;
+        a.download = this.file?.name || 'downloaded_file';
         a.click();
         window.URL.revokeObjectURL(url);
     }
@@ -218,6 +269,19 @@ class FileShare {
         status.className = `status ${type}`;
     }
 
+    updateConnectionStatus(senderConnected, receiverConnected) {
+        const connectionStatus = document.getElementById('connection-status');
+        connectionStatus.classList.remove('hidden');
+        document.getElementById('sender-status').textContent = 
+            senderConnected ? 'Connected' : 'Disconnected';
+        document.getElementById('sender-status').style.color = 
+            senderConnected ? '#155724' : '#721c24';
+        document.getElementById('receiver-status').textContent = 
+            receiverConnected ? 'Connected' : 'Disconnected';
+        document.getElementById('receiver-status').style.color = 
+            receiverConnected ? '#155724' : '#721c24';
+    }
+
     showError(message) {
         const errorDiv = document.getElementById('error-message');
         errorDiv.textContent = message;
@@ -245,7 +309,6 @@ class FileShare {
 
     startDownload() {
         this.updateStatus('Initiating download...', 'waiting');
-        // File info will be updated once connection is established
         document.getElementById('receive-file-name').textContent = 'Waiting for sender...';
         document.getElementById('receive-file-size').textContent = 'Unknown';
     }
