@@ -81,16 +81,6 @@ input[type="file"] {
     font-size: 0.9rem;
 }
 
-progress {
-    width: 100%;
-    margin: 20px 0;
-    height: 20px;
-}
-
-#progress-container, #download-progress-container {
-    text-align: center;
-}
-
 .status {
     text-align: center;
     padding: 10px;
@@ -122,9 +112,5 @@ progress {
     
     #link-container {
         flex-direction: column;
-    }
-    
-    #connection-status {
-        font-size: 0.9rem;
     }
 }
